@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>58mm Goal Receipt Generator</title>
+
+<style>
+body{
+    font-family: Arial,sans-serif;
+    max-width:600px;
+    margin:20px auto;
+    padding:20px;
+}
+
+h2{
+    text-align:center;
+}
+
+select,input,button{
+    width:100%;
+    padding:12px;
+    margin-top:10px;
+    box-sizing:border-box;
+}
+
+button{
+    cursor:pointer;
+}
+
+.card{
+    margin-top:15px;
+    border:1px solid #ccc;
+    border-radius:10px;
+    padding:15px;
+}
+
+.hidden{
+    display:none;
+}
+
+#status{
+    margin-top:10px;
+    font-weight:bold;
+}
+
+#goalList{
+    margin-top:15px;
+}
+
+.goal-item{
+    border:1px solid #ddd;
+    padding:10px;
+    border-radius:8px;
+    margin-bottom:8px;
+}
+
+#previewCanvas{
+    margin-top:20px;
+    border:1px solid #ccc;
+    max-width:100%;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Goal Receipt Generator</h2>
+
+<label>Goal Type</label>
+
+<select id="goalType">
+    <option value="money">Money Goal</option>
+    <option value="other">Other Goal</option>
+</select>
+
+<div id="moneySection">
+
+    <input
+        type="number"
+        id="usdInput"
+        placeholder="Enter USD amount"
+    >
+
+    <div class="card">
+        <div id="livePreview">
+            USD: $0<br>
+            Approx: 0 ₫
+        </div>
+    </div>
+
+</div>
+
+<div id="otherSection" class="hidden">
+
+    <input
+        type="text"
+        id="goalText"
+        placeholder="What is your goal?"
+    >
+
+</div>
+
+<button onclick="confirmGoal()">
+Add Goal
+</button>
+
+<button onclick="resetGoals()">
+Reset All Goals
+</button>
+
+<button onclick="generateReceipt()">
+Generate Receipt
+</button>
+
+<button onclick="downloadReceipt()">
+Download PNG
+</button>
+
+<div id="status">
+0 Goals Added
+</div>
+
+<div id="goalList"></div>
+
+<canvas id="previewCanvas"></canvas>
+
+<script>
+
+const RATE = 26000;
+
+const goals = [];
+
+const goalType =
+document.getElementById("goalType");
+
+const moneySection =
+document.getElementById("moneySection");
+
+const otherSection =
+document.getElementById("otherSection");
+
+const usdInput =
+document.getElementById("usdInput");
+
+const goalText =
+document.getElementById("goalText");
+
+const livePreview =
+document.getElementById("livePreview");
+
+const goalList =
+document.getElementById("goalList");
+
+const statusDiv =
+document.getElementById("status");
+
+goalType.addEventListener("change", () => {
+
+    if(goalType.value === "money"){
+        moneySection.classList.remove("hidden");
+        otherSection.classList.add("hidden");
+    }else{
+        moneySection.classList.add("hidden");
+        otherSection.classList.remove("hidden");
+    }
+
+});
+
+usdInput.addEventListener("input", () => {
+
+    const usd =
+    Number(usdInput.value || 0);
+
+    const vnd =
+    usd * RATE;
+
+    livePreview.innerHTML = `
+        <strong>USD:</strong> $${usd}<br>
+        <strong>Approx:</strong>
+        ${vnd.toLocaleString("vi-VN")} ₫
+    `;
+
+});
+
+function confirmGoal(){
+
+    if(goalType.value === "money"){
+
+        const usd =
+        Number(usdInput.value);
+
+        if(!usd){
+            alert("Enter a USD amount.");
+            return;
+        }
+
+        goals.push({
+            type:"money",
+            usd:usd,
+            vnd:usd*RATE
+        });
+
+        usdInput.value="";
+
+        livePreview.innerHTML=
+        "USD: $0<br>Approx: 0 ₫";
+
+    }
+
+    else{
+
+        const text =
+        goalText.value.trim();
+
+        if(text===""){
+            alert("Enter a goal.");
+            return;
+        }
+
+        goals.push({
+            type:"other",
+            text:text
+        });
+
+        goalText.value="";
+    }
+
+    renderGoalList();
+
+}
+
+function renderGoalList(){
+
+    goalList.innerHTML="";
+
+    goals.forEach((goal,index)=>{
+
+        const div =
+        document.createElement("div");
+
+        div.className="goal-item";
+
+        if(goal.type==="money"){
+
+            div.innerHTML=`
+                <strong>Goal ${index+1}</strong><br>
+                Type: Money<br>
+                $${goal.usd}
+                (~${goal.vnd.toLocaleString("vi-VN")} ₫)
+            `;
+
+        }else{
+
+            div.innerHTML=`
+                <strong>Goal ${index+1}</strong><br>
+                Type: Other<br>
+                ${goal.text}
+            `;
+
+        }
+
+        goalList.appendChild(div);
+
+    });
+
+    statusDiv.textContent =
+    goals.length + " Goals Added";
+
+}
+
+function resetGoals(){
+
+    goals.length = 0;
+
+    goalList.innerHTML="";
+
+    statusDiv.textContent =
+    "0 Goals Added";
+
+    usdInput.value="";
+    goalText.value="";
+
+    livePreview.innerHTML=
+    "USD: $0<br>Approx: 0 ₫";
+
+    const canvas =
+    document.getElementById("previewCanvas");
+
+    const ctx =
+    canvas.getContext("2d");
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+}
+
+function generateReceipt(){
+
+    if(goals.length===0){
+
+        alert(
+            "Add at least one goal."
+        );
+
+        return;
+    }
+
+    const canvas =
+    document.getElementById("previewCanvas");
+
+    const ctx =
+    canvas.getContext("2d");
+
+    const estimatedHeight =
+    150 + goals.length * 90;
+
+    canvas.width = 384;
+    canvas.height = estimatedHeight;
+
+    ctx.fillStyle="white";
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    ctx.fillStyle="black";
+    ctx.textAlign="center";
+
+    let y = 30;
+
+    ctx.font =
+    "bold 22px monospace";
+
+    ctx.fillText(
+        "GOAL RECEIPT",
+        canvas.width/2,
+        y
+    );
+
+    y += 25;
+
+    ctx.font =
+    "16px monospace";
+
+    ctx.fillText(
+        "================",
+        canvas.width/2,
+        y
+    );
+
+    y += 30;
+
+    goals.forEach((goal,index)=>{
+
+        ctx.fillText(
+            `Goal ${index+1}`,
+            canvas.width/2,
+            y
+        );
+
+        y += 22;
+
+        if(goal.type==="money"){
+
+            ctx.fillText(
+                "Type: Money",
+                canvas.width/2,
+                y
+            );
+
+            y += 20;
+
+            ctx.fillText(
+                `$${goal.usd}`,
+                canvas.width/2,
+                y
+            );
+
+            y += 20;
+
+            ctx.fillText(
+                `~${goal.vnd.toLocaleString("vi-VN")} ₫`,
+                canvas.width/2,
+                y
+            );
+
+            y += 25;
+
+        }else{
+
+            ctx.fillText(
+                "Type: Other",
+                canvas.width/2,
+                y
+            );
+
+            y += 20;
+
+            wrapText(
+                ctx,
+                goal.text,
+                canvas.width/2,
+                y,
+                320,
+                20
+            );
+
+            y += 40;
+        }
+
+    });
+
+    ctx.fillText(
+        new Date().toLocaleDateString(),
+        canvas.width/2,
+        y
+    );
+
+    y += 20;
+
+    ctx.fillText(
+        "================",
+        canvas.width/2,
+        y
+    );
+
+    canvas.height = y + 30;
+
+    generateReceiptAgain();
+
+}
+
+function generateReceiptAgain(){
+
+    const canvas =
+    document.getElementById("previewCanvas");
+
+    const ctx =
+    canvas.getContext("2d");
+
+    ctx.fillStyle="white";
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    ctx.fillStyle="black";
+    ctx.textAlign="center";
+
+    let y = 30;
+
+    ctx.font =
+    "bold 22px monospace";
+
+    ctx.fillText(
+        "GOAL RECEIPT",
+        canvas.width/2,
+        y
+    );
+
+    y += 25;
+
+    ctx.font =
+    "16px monospace";
+
+    ctx.fillText(
+        "================",
+        canvas.width/2,
+        y
+    );
+
+    y += 30;
+
+    goals.forEach((goal,index)=>{
+
+        ctx.fillText(
+            `Goal ${index+1}`,
+            canvas.width/2,
+            y
+        );
+
+        y += 22;
+
+        if(goal.type==="money"){
+
+            ctx.fillText(
+                "Type: Money",
+                canvas.width/2,
+                y
+            );
+
+            y += 20;
+
+            ctx.fillText(
+                `$${goal.usd}`,
+                canvas.width/2,
+                y
+            );
+
+            y += 20;
+
+            ctx.fillText(
+                `~${goal.vnd.toLocaleString("vi-VN")} ₫`,
+                canvas.width/2,
+                y
+            );
+
+            y += 25;
+
+        }else{
+
+            ctx.fillText(
+                "Type: Other",
+                canvas.width/2,
+                y
+            );
+
+            y += 20;
+
+            ctx.fillText(
+                goal.text,
+                canvas.width/2,
+                y
+            );
+
+            y += 30;
+        }
+
+    });
+
+    ctx.fillText(
+        new Date().toLocaleDateString(),
+        canvas.width/2,
+        y
+    );
+
+}
+
+function wrapText(
+    ctx,
+    text,
+    x,
+    y,
+    maxWidth,
+    lineHeight
+){
+
+    const words =
+    text.split(" ");
+
+    let line="";
+
+    for(let n=0;n<words.length;n++){
+
+        const testLine =
+        line + words[n] + " ";
+
+        const width =
+        ctx.measureText(testLine).width;
+
+        if(width > maxWidth && n > 0){
+
+            ctx.fillText(
+                line,
+                x,
+                y
+            );
+
+            line =
+            words[n] + " ";
+
+            y += lineHeight;
+
+        }else{
+
+            line = testLine;
+
+        }
+
+    }
+
+    ctx.fillText(
+        line,
+        x,
+        y
+    );
+
+}
+
+function downloadReceipt(){
+
+    const canvas =
+    document.getElementById("previewCanvas");
+
+    if(canvas.width===0){
+
+        alert(
+            "Generate receipt first."
+        );
+
+        return;
+    }
+
+    const link =
+    document.createElement("a");
+
+    link.download =
+    "goal-receipt.png";
+
+    link.href =
+    canvas.toDataURL("image/png");
+
+    link.click();
+
+}
+
+</script>
+
+</body>
+</html>
